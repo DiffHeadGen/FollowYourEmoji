@@ -31,3 +31,4 @@ out_videos/
 
 /mmpose/ckpt/
 mmpose
+pretrained_models/

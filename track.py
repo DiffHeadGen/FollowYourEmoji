@@ -22,15 +22,19 @@ class Tracker:
         frames = imageio.get_reader(video_path)
         face_results = []
         motions = []
-        for frame in tqdm(frames, total=frames.count_frames(), desc="Tracking"):
+        last_face_result = None
+        for i,frame in enumerate(tqdm(frames, total=frames.count_frames(), desc="Tracking")):
             frame_bgr = cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
 
             face_result = self.lmk_extractor(frame_bgr)
-            assert face_result is not None, "Can not detect a face in the reference image."
+            if face_result is None:
+                face_result = last_face_result
+                print(f"Can not detect a face in the reference image. {i}, use last frame")
             face_result["width"] = frame_bgr.shape[1]
             face_result["height"] = frame_bgr.shape[0]
 
             face_results.append(face_result)
+            last_face_result = face_result
             lmks = face_result["lmks"].astype(np.float32)
             motion = self.vis.draw_landmarks((frame_bgr.shape[1], frame_bgr.shape[0]), lmks, normed=True)
             motions.append(motion)

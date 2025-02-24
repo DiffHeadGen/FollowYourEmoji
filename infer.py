@@ -8,8 +8,8 @@ from PIL import Image
 from omegaconf import OmegaConf
 
 import torch
-import torch.distributed as dist
-from torch.utils.data.distributed import DistributedSampler
+# import torch.distributed as dist
+# from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 import torchvision.transforms as T
 
@@ -43,10 +43,9 @@ def load_model_state_dict(model, model_ckpt_path, name):
 class VideoInference:
     def __init__(self, config):
         """初始化模型，只需执行一次"""
-        # 初始化分布式环境
-        dist.init_process_group(backend="nccl")
-        self.local_rank = int(os.environ["LOCAL_RANK"])
-        torch.cuda.set_device(self.local_rank)
+        # dist.init_process_group(backend="nccl")
+        # self.local_rank = int(os.environ["LOCAL_RANK"])
+        # torch.cuda.set_device(self.local_rank)
 
         # 设置权重类型
         if config.weight_dtype == "fp16":
@@ -130,8 +129,8 @@ class VideoInference:
             input_path=input_path, lmk_path=lmk_path, resolution_h=self.config.resolution_h, resolution_w=self.config.resolution_w
         )
         print(f"Dataset size: {len(val_dataset)}")
-        sampler = DistributedSampler(val_dataset, shuffle=False)
-        val_dataloader = DataLoader(val_dataset, batch_size=1, num_workers=0, sampler=sampler, collate_fn=val_collate_fn)
+        # sampler = DistributedSampler(val_dataset, shuffle=False)
+        val_dataloader = DataLoader(val_dataset, batch_size=1, num_workers=0, collate_fn=val_collate_fn)
 
         for i, batch in enumerate(val_dataloader):
             ref_frame = batch["ref_frame"][0]
@@ -172,14 +171,14 @@ class VideoInference:
             preds = (preds * 255).cpu().numpy().astype(np.uint8)
 
             # 保存视频
-            mp4_path = os.path.join(output_path, f"{lmk_name}_{file_name.split('.')[0]}_oo.mp4")
+            mp4_path = os.path.join(output_path, f"{file_name.split('.')[0]}_oo.mp4")
             mp4_writer = imageio.get_writer(mp4_path, fps=25)
             print(preds.shape)
             for pred in preds:
                 mp4_writer.append_data(pred)
             mp4_writer.close()
 
-            mp4_path = os.path.join(output_path, f"{lmk_name}_{file_name.split('.')[0]}_all.mp4")
+            mp4_path = os.path.join(output_path, f"{file_name.split('.')[0]}_all.mp4")
             mp4_writer = imageio.get_writer(mp4_path, fps=25)
             if "frames" in batch:
                 frames = batch["frames"][0]
@@ -211,7 +210,7 @@ class FollowYourEmojiLoader(RowDataLoader):
         return Tracker()
 
     def get_lmk_path(self, row: RowData):
-        os.path.join(row.output_dir, "mp_ldmk.npy")
+        return os.path.join(row.output_dir, "mp_ldmk.npy")
 
     def run_video(self, row):
         lmk_path = self.get_lmk_path(row)
@@ -220,15 +219,17 @@ class FollowYourEmojiLoader(RowDataLoader):
         config = OmegaConf.load("./configs/infer.yaml")
         infer = VideoInference(config)
         input_path = row.source_img_path
-        infer.infer(input_path, lmk_path, row.output_dir)
-        output_video_path = os.path.join(row.output_dir, f"video_{row.source_name}_oo.mp4")
+        output_video_path = os.path.join(row.output_dir, f"{row.source_name}_oo.mp4")
+        if not os.path.exists(output_video_path):
+            infer.infer(input_path, lmk_path, row.output_dir)
         shutil.copyfile(output_video_path, row.output_video_path)
         row.output.human()
 
 
 def main():
     loader = FollowYourEmojiLoader()
-    loader.run_video(loader.all_data_rows[0])
+    # loader.run_video(loader.all_data_rows[0])
+    loader.run_all()
 
 
 def test():

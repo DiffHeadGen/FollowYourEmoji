@@ -8,6 +8,7 @@ from PIL import Image
 from omegaconf import OmegaConf
 
 import torch
+
 # import torch.distributed as dist
 # from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
@@ -212,23 +213,32 @@ class FollowYourEmojiLoader(RowDataLoader):
     def get_lmk_path(self, row: RowData):
         return os.path.join(row.output_dir, "mp_ldmk.npy")
 
+    @cached_property
+    def model(self):
+        config = OmegaConf.load("./configs/infer.yaml")
+        return VideoInference(config)
+
     def run_video(self, row):
         lmk_path = self.get_lmk_path(row)
         if not os.path.exists(lmk_path):
             self.tracker.track(row.target.video_path, lmk_path)
-        config = OmegaConf.load("./configs/infer.yaml")
-        infer = VideoInference(config)
         input_path = row.source_img_path
         output_video_path = os.path.join(row.output_dir, f"{row.source_name}_oo.mp4")
         if not os.path.exists(output_video_path):
-            infer.infer(input_path, lmk_path, row.output_dir)
+            self.model.infer(input_path, lmk_path, row.output_dir)
         shutil.copyfile(output_video_path, row.output_video_path)
         row.output.human()
+        
+    def check_len(self, row:RowData):
+        lmk_path = self.get_lmk_path(row)
+        if not os.path.exists(lmk_path):
+            self.tracker.track(row.target.video_path, lmk_path)
+        print(row, len(np.load(lmk_path, allow_pickle=True)), row.num_frames)
 
 
 def main():
     loader = FollowYourEmojiLoader()
-    # loader.run_video(loader.all_data_rows[0])
+    # loader.check_len(loader.all_data_rows[0])
     loader.run_all()
 
 

@@ -1,13 +1,14 @@
 ml proxy
 
-conda create -n fye python=3.10 -y 
-conda activate fye
+conda create -n fye1 python=3.10 -y 
+conda activate fye1
 
-pip install -r requirements.txt
-pip install -e ../expdata
+python -m pip install -r requirements.txt
+python -m pip install -e ../expdata
 conda install ffmpeg -c conda-forge -y
 # 安装 huggingface-cli（如果还未安装）
-pip install huggingface_hub==0.25.0
+python -m pip install huggingface_hub==0.25.0
+python -m pip install omegaconf
 
 # 下载 follow-your-emoji 主模型文件到 pretrained_models/follow-your-emoji
 huggingface-cli download YueMafighting/FollowYourEmoji --include "*.pth" --local-dir pretrained_models/follow-your-emoji
